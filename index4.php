@@ -1,86 +1,88 @@
 <?php
 require './crawler.php';
+require __DIR__ . '/simple_html_dom.php';
 
 use Symfony\Component\DomCrawler\Crawler;
 
 function getBODByTime()
 {
-    for ($i = 2018; $i <= 2018; $i++) {
-        $link = "http://www.consob.it/web/consob-and-its-activities/search-listed-companies?viewId=ricerca_quotate&hits=235&viewres=1&search=1&&resultmethod=socquotmr&queryid=main.emittenti.societa_quotate.form_avanzato&maxres=500&subject=ors&startdate=2019-12-01&enddate=2019-12-31";
-        getBOD($link);
+    for ($i = 2010; $i <= 2020; $i++) {
+        $link = "http://www.consob.it/web/consob-and-its-activities/search-listed-companies?viewId=ricerca_quotate&viewres=1&search=1&&resultmethod=socquotmr&queryid=main.emittenti.societa_quotate.form_avanzato&maxres=500&subject=ors&startdate=$i-12-01&enddate=$i-12-31";
+        getBOD($link, $i);
     }
 }
 
-function getBOD($link)
+function getBOD($link, $year)
 {
     try {
-        $i = 50;
-        while ($i != 'stop') {
+        $i = 0;
+        while ($i !== 'stop') {
             $newlink = $link . "&firstres=$i";
-            $newlink = "http://www.consob.it/web/consob-and-its-activities/search-listed-companies?viewId=ricerca_quotate&hits=235&viewres=1&search=1&&resultmethod=socquotmr&queryid=main.emittenti.societa_quotate.form_avanzato&maxres=500&subject=ors&startdate=2019-12-01&enddate=2019-12-31&firstres=50";
-            $crawler = getCrawler($newlink);
+            $crawler = getCrawlerError($newlink);
 
-            $data = [];
+            $isExitingData = $crawler
+                ->filter('.consobResult li .div80 a:first-child')->getNode(0);
+
+            if (!$isExitingData) {
+                return;
+            }
+
             $crawler
                 ->filter('.consobResult li .div80 a:first-child')
-                ->each(function (Crawler $node, $i) use (&$data) {
-                    $companyLink = getCompanyInfo($node->attr('href'));
-                    $data[] = [$node->text(), $companyLink];
+                ->each(function (Crawler $node, $i) use ($year) {
+                    var_dump($i);
+                    var_dump($node->text());
+
+                    $listBod = getListBodName($node->attr('href'));
+                    $companyName = str_replace('- Board Members','', $node->text());
+
+                    $data = [];
+                    if (!$listBod) {
+                        $listBod = [['', '']];
+                    }
+
+                    foreach ($listBod as $key => $item) {
+                        if ($key != 0) {
+                            $companyName = '';
+                        }
+                        $data[] = [$companyName, $item[0], $item[1]];
+                    }
+
+                    writeData("bod-$year.csv", $data);
+
                 });
 
-            /*======================*/
-            $fp = fopen('bod.csv', 'a+');
-
-            foreach ($data as $fields) {
-                fputcsv($fp, $fields);
-                echo ".";
-            }
-
-            fclose($fp);
-
-            /*======================*/
-
-            $node = $crawler
-                ->filter('ul.m-pagination__nav li:last-child')
-                ->getNode(0);
-
-            if (!$node) {
-                return;
-            }
-
-            $last = $crawler
-                ->filter('ul.m-pagination__nav li:last-child')
-                ->text();
-
-            if ($last == $i) {
-                return;
-            }
-
-            $i +=50;
+            $i += 50;
         }
     } catch (Exception $e) {
         echo "(^_^ " . $e->getCode() . " ^_^)";
     }
 }
 
-function getCompanyInfo($link)
+function getListBodName($link)
 {
     $link = str_replace("javascript:liferayLinkHook('", '', $link);
     $link = str_replace("');", '', $link);
 
     $link = "http://www.consob.it/web/consob-and-its-activities/listed-companies" . $link;
 
-    console.log($link);
-//    $crawler = getCrawler($link);
+    $crawler = getCrawlerError2($link);
 
-//    $isincode = '';
-//    $crawler
-//        ->filter('.l-grid__row:nth-child(7) .l-box.-pb div:nth-child(2) table tr:nth-child(4) td:nth-child(2)')
-//        ->each(function (Crawler $node, $i) use (&$isincode) {
-//            $isincode = $node->text();
-//        });
+    $bodName = [];
+    $crawler
+        ->filter('tr')
+        ->each(function (Crawler $node, $i) use (&$bodName) {
+            if ($i === 0 || $i === 1) {
+                return;
+            }
 
-    return $isincode;
+            $name = $node->filter('td')->first();
+            $position = $node->filter('td')->eq(1);
+
+            $bodName[] = [$name->text(), $position->text()];
+        });
+
+    return $bodName;
 }
 
 getBODByTime();
