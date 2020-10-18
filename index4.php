@@ -6,7 +6,7 @@ use Symfony\Component\DomCrawler\Crawler;
 
 function getBODByTime()
 {
-    for ($i = 2010; $i <= 2020; $i++) {
+    for ($i = 2018; $i <= 2020; $i++) {
         $link = "http://www.consob.it/web/consob-and-its-activities/search-listed-companies?viewId=ricerca_quotate&viewres=1&search=1&&resultmethod=socquotmr&queryid=main.emittenti.societa_quotate.form_avanzato&maxres=500&subject=ors&startdate=$i-12-01&enddate=$i-12-31";
         getBOD($link, $i);
     }
